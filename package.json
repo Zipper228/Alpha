@@ -90,7 +90,7 @@
     "bot": "ts-node src/bot.ts",
     "coin": "ts-node src/coin.ts",
     "db": "ts-node src/db.ts",
-    "botjs": "node dist/bot.js"
+    "start": "node dist/bot.js"
   },
   "keywords": [],
   "author": "",
