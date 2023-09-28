@@ -1,6 +1,7 @@
 import { TatumLtcSDK } from "@tatumio/ltc";
 import { Fiat } from "@tatumio/api-client";
 import dotenv from "dotenv";
+import { parseFloat } from "./db.js";
 dotenv.config();
 const ltcSDK = TatumLtcSDK({
     apiKey: process.env.API_KEY || "",
@@ -18,7 +19,7 @@ export async function checkAccountBalance(addressToCheck) {
     if (addressToCheck !== undefined) {
         try {
             const balance = await ltcSDK.blockchain.getBlockchainAccountBalance(addressToCheck);
-            return (Number(balance.incoming) - Number(balance.outgoing)).toFixed(8);
+            return parseFloat(Number(balance.incoming) - Number(balance.outgoing), 8);
         }
         catch (error) {
             throw "Такого аккаунта не существует.";
@@ -35,7 +36,7 @@ export async function checkTransactionByUSD(value, litecoin) {
     else {
         const LTCrateRUB = await ltcSDK.getExchangeRate(Fiat.RUB);
         value = value / Number(LTCrateRUB.value);
-        valueNew = Number(value.toFixed(8));
+        valueNew = parseFloat(value, 8);
     }
     const numberToCheck = process.env.NUM_CHECK || 10;
     console.log(numberToCheck);
@@ -49,12 +50,13 @@ export async function checkTransactionByUSD(value, litecoin) {
                 if (txOutputs !== undefined) {
                     for (let j = 0; j < txOutputs.length; j++) {
                         let txOutputsJth = txOutputs[j];
+                        let share = Number(process.env.ALLOWED_DIF) || 0.1;
                         if (txOutputsJth.address === address &&
-                            moreOrLessThanNum(Number(txOutputsJth.value), valueNew, 0.15)) {
+                            moreOrLessThanNum(Number(txOutputsJth.value), valueNew, share)) {
                             response.push({
                                 hash: JSON.stringify(txByAddress[i].hash),
                                 index: j,
-                                value: Number(Number(txOutputsJth.value).toFixed(8)),
+                                value: parseFloat(txOutputsJth.value, 2),
                             });
                         }
                     }
@@ -79,7 +81,7 @@ export async function checkTransactionByUSD(value, litecoin) {
 export async function make_transaction(valueToSend1, recipientAddress1) {
     const privateKey = process.env.MY_PRIVATE_KEY || "";
     var valueToSend = valueToSend1;
-    valueToSend = Number(valueToSend.toFixed(8));
+    valueToSend = parseFloat(valueToSend, 8);
     var recipientAddress = recipientAddress1;
     const fee = process.env.FEE;
     const changeAddress = process.env.MY_ADDRESS || "";
@@ -110,4 +112,3 @@ export async function make_transaction(valueToSend1, recipientAddress1) {
         throw "Транзакция провалилась";
     }
 }
-
