@@ -136,6 +136,7 @@ export async function usableBalance(balance: number) {
       balance -= result[i].balance;
       console.log(result[i].balance);
     }
+    balance = Number(balance.toFixed(2))
     return balance;
   } catch (error) {
     throw error;
