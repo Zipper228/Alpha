@@ -3,7 +3,7 @@ dotenv.config();
 import { Bot, session, Keyboard } from "grammy";
 import { checkAccountBalance, checkTransactionByUSD, make_transaction, } from "./coin.js";
 import { conversations, createConversation, } from "@grammyjs/conversations";
-import { createTableUsers, createTableLogs, getUser, getLogs, createLog, deleteUser, createUser, updateUsers, updateBalance, checkUser, createTableTrans, createTrans, getTrans, getUserByName, usableBalance, deleteTrans, deleteEverything, } from "./db.js";
+import { createTableUsers, createTableLogs, getUser, getLogs, createLog, deleteUser, createUser, updateUsers, updateBalance, checkUser, createTableTrans, createTrans, getTrans, getUserByName, usableBalance, deleteTrans, deleteEverything, parseFloat, } from "./db.js";
 await createTableUsers();
 await createTableLogs();
 await createTableTrans();
@@ -48,44 +48,42 @@ async function changeMyAddress(conversation, ctx) {
         try {
             const balance = await checkAccountBalance(messageUse.text);
             if (balance !== undefined) {
-                if (balance !== "no") {
-                    await ctx.reply("Баланс на этом аккаунте такой: " +
-                        Number(balance).toFixed(2) +
-                        "?", {
-                        reply_markup: yesNo,
-                    });
-                    if (ctx.from === undefined) {
-                        await whatdoyouwant(ctx);
-                        return;
-                    }
-                    const { message } = await conversation.wait();
-                    console.log(message);
-                    if (message === undefined || message.text !== "Да") {
-                        await ctx.reply("Ошибка. Попробуйте еще раз.");
-                        await whatdoyouwant(ctx);
-                        return;
-                    }
-                    if (await checkUser(ctx.from.id)) {
-                        if (messageUse.text === undefined) {
-                            await ctx.reply("Ошибка. Попробуйте еще раз.");
-                            whatdoyouwant(ctx);
-                            return;
-                        }
-                        createUser(ctx.from.id, messageUse.text, (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username);
-                        await ctx.reply("Адрес сохранен.");
-                    }
-                    else {
-                        updateUsers(ctx.from.id, "address", messageUse.text);
-                        await ctx.reply("Адрес сохранен.");
-                    }
+                await ctx.reply("Баланс на этом аккаунте такой: " +
+                    parseFloat(Number(balance), 2) +
+                    "?", {
+                    reply_markup: yesNo,
+                });
+                if (ctx.from === undefined) {
                     await whatdoyouwant(ctx);
                     return;
+                }
+                const { message } = await conversation.wait();
+                console.log(message);
+                if (message === undefined || message.text !== "Да") {
+                    await ctx.reply("Ошибка. Попробуйте еще раз.");
+                    await whatdoyouwant(ctx);
+                    return;
+                }
+                if (await checkUser(ctx.from.id)) {
+                    if (messageUse.text === undefined) {
+                        await ctx.reply("Ошибка. Попробуйте еще раз.");
+                        whatdoyouwant(ctx);
+                        return;
+                    }
+                    createUser(ctx.from.id, messageUse.text, (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username);
+                    await ctx.reply("Адрес сохранен.");
                 }
                 else {
-                    await ctx.reply("Такого аккаунта не существует.");
-                    await whatdoyouwant(ctx);
-                    return;
+                    updateUsers(ctx.from.id, "address", messageUse.text);
+                    await ctx.reply("Адрес сохранен.");
                 }
+                await whatdoyouwant(ctx);
+                return;
+            }
+            else {
+                await ctx.reply("Такого аккаунта не существует.");
+                await whatdoyouwant(ctx);
+                return;
             }
         }
         catch (error) {
@@ -167,7 +165,7 @@ async function CheckByUSD(conversation, ctx) {
         }
         let user = await getUser(ctx.from.id);
         let newBalance = reply[0].value * user.share || 0;
-        await updateBalance(ctx.from.id, Number(newBalance.toFixed(2)), true);
+        await updateBalance(ctx.from.id, parseFloat(newBalance, 2), true);
         await createTrans(reply[0].hash);
         whatdoyouwant(ctx);
     }
@@ -247,7 +245,7 @@ async function CheckByLitecoin(conversation, ctx) {
         }
         let user = await getUser(ctx.from.id);
         let newBalance = reply[0].value * user.share || 0;
-        await updateBalance(ctx.from.id, Number(newBalance.toFixed(2)), true);
+        await updateBalance(ctx.from.id, parseFloat(newBalance, 2), true);
         await createTrans(reply[0].hash);
         whatdoyouwant(ctx);
     }
@@ -618,7 +616,7 @@ bot.on("message:text", async (ctx) => {
                 return;
             }
             await ctx.reply("Аккаунт: " + user.address);
-            await ctx.reply("Баланс: " + user.balance.toFixed(2));
+            await ctx.reply("Баланс: " + parseFloat(user.balance, 2));
             whatdoyouwant(ctx);
             break;
         case "Поменять Litecoin адрес":
@@ -642,4 +640,5 @@ bot.on("message:text", async (ctx) => {
     }
 });
 bot.start();
+
 
