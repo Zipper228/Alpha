@@ -14,6 +14,11 @@ export function datetime() {
     const dateSQL = date.toISOString().split("T")[0] + " " + date.toTimeString().split(" ")[0];
     return dateSQL;
 }
+export function parseFloat(number, decimal_places) {
+    let numberStr = number.toString();
+    numberStr = numberStr.slice(0, numberStr.indexOf(".") + decimal_places + 1);
+    return Number(numberStr);
+}
 export async function createTableUsers() {
     try {
         await pool.query("CREATE TABLE IF NOT EXISTS " +
@@ -226,7 +231,7 @@ export async function updateBalance(teleg_id, value, increase) {
     else {
         balance -= value;
     }
-    balance = Number(balance.toFixed(2));
+    balance = parseFloat(balance, 2);
     await updateUsers(teleg_id, "balance", balance);
 }
 export async function dropTable(table) {
@@ -255,6 +260,7 @@ export async function checkUser(teleg_id) {
         return true;
     }
 }
+
 
 
 
