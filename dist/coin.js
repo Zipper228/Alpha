@@ -37,10 +37,10 @@ export async function checkTransactionByUSD(value, litecoin) {
         value = value / Number(LTCrateRUB.value);
         valueNew = Number(value.toFixed(8));
     }
-    console.log(valueNew);
+    const numberToCheck = process.env.NUM_CHECK || 10;
+    console.log(numberToCheck);
     try {
-        const txByAddress = await ltcSDK.blockchain.getTransactionsByAddress(address, 10);
-        console.log(txByAddress);
+        const txByAddress = await ltcSDK.blockchain.getTransactionsByAddress(address, Number(numberToCheck));
         for (let i = 0; i < txByAddress.length; i++) {
             var txInfo = txByAddress[i];
             let txOutputs;
@@ -110,3 +110,4 @@ export async function make_transaction(valueToSend1, recipientAddress1) {
         throw "Транзакция провалилась";
     }
 }
+
