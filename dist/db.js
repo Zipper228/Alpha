@@ -89,6 +89,17 @@ export async function getTrans(hash) {
         console.log("ERROR IN GETTRANS " + error);
     }
 }
+export async function deleteTrans(hash) {
+    try {
+        console.log(hash);
+        console.log(await getTrans('"' + hash + '"'));
+        await pool.query("DELETE FROM " + process.env.MYSQL_TABLE_NAME_TRANS + " WHERE hash = ?", ['"' + hash + '"']);
+    }
+    catch (error) {
+        console.log("ERROR IN DELETETRANS " + error);
+        throw "Ошибка";
+    }
+}
 export async function usableBalance(balance) {
     try {
         var [balances] = await pool.query("SELECT balance FROM " + process.env.MYSQL_TABLE_NAME_USERS);
@@ -221,6 +232,19 @@ export async function dropTable(table) {
     console.log("DROP TABLE " + table);
     await pool.query("DROP TABLE " + table);
 }
+export async function deleteEverything() {
+    try {
+        await dropTable(process.env.MYSQL_TABLE_NAME_LOGS || "");
+        await dropTable(process.env.MYSQL_TABLE_NAME_TRANS || "");
+        await dropTable(process.env.MYSQL_TABLE_NAME_USERS || "");
+        await createTableUsers();
+        await createTableLogs();
+        await createTableTrans();
+    }
+    catch (error) {
+        throw "Ошибка";
+    }
+}
 export async function checkUser(teleg_id) {
     const user = await getUser(teleg_id);
     if (user !== undefined) {
@@ -230,9 +254,3 @@ export async function checkUser(teleg_id) {
         return true;
     }
 }
-//await dropTable(process.env.MYSQL_TABLE_NAME_LOGS || "");
-//await dropTable(process.env.MYSQL_TABLE_NAME_TRANS || "");
-//await createTableTrans();
-//deleteUser(875460557);
-//console.log(await usableBalance(100));
-
