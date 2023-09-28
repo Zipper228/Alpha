@@ -3,7 +3,7 @@ dotenv.config();
 import { Bot, session, Keyboard } from "grammy";
 import { checkAccountBalance, checkTransactionByUSD, make_transaction, } from "./coin.js";
 import { conversations, createConversation, } from "@grammyjs/conversations";
-import { createTableUsers, createTableLogs, getUser, getLogs, createLog, deleteUser, createUser, updateUsers, updateBalance, checkUser, createTableTrans, createTrans, getTrans, getUserByName, usableBalance, } from "./db.js";
+import { createTableUsers, createTableLogs, getUser, getLogs, createLog, deleteUser, createUser, updateUsers, updateBalance, checkUser, createTableTrans, createTrans, getTrans, getUserByName, usableBalance, deleteTrans, deleteEverything, } from "./db.js";
 await createTableUsers();
 await createTableLogs();
 await createTableTrans();
@@ -267,11 +267,17 @@ const admin = new Keyboard()
     .row()
     .text("Поменять долю пользователя.")
     .row()
+    .text("Поменять баланс пользователя.")
+    .row()
     .text("Перевести деньги с аккаунта")
+    .row()
+    .text("Поменять принадлежность транзакции")
+    .row()
+    .text("Показать данные пользователя")
     .row()
     .text("Выйти из режима админа")
     .row()
-    .text("Показать данные пользователя");
+    .text("Полный ребут (не нажимать)");
 async function help(conversation, ctx) {
     await ctx.reply("Введите ключ админа:");
     var message = await conversation.wait();
@@ -390,6 +396,82 @@ async function help(conversation, ctx) {
                     }
                 }
                 break;
+            case "Поменять баланс пользователя.":
+                try {
+                    await ctx.reply("Введите имя или ID пользователя:");
+                    var teleg_name = await conversation.wait();
+                    if (teleg_name.message === undefined) {
+                        throw "Ошибка с чтением имени пользователя.";
+                    }
+                    let id = await getUserByName(teleg_name.message.text || "");
+                    id = Number(id.teleg_id);
+                    if (id === undefined) {
+                        throw "Ошибка с чтением имени пользователя.";
+                    }
+                    else {
+                        await ctx.reply("Введите новый баланс пользователя.");
+                        let newValue = await conversation.wait();
+                        if (newValue.message === undefined) {
+                            throw "Ошибка с чтением баланса пользователя.";
+                        }
+                        await updateUsers(Number(id), "balance", newValue.message.text);
+                        await ctx.reply("Баланс поменен.");
+                        break;
+                    }
+                }
+                catch (error) {
+                    if (error instanceof Error) {
+                        if (error.message === "Ошибка с чтением имени пользователя." ||
+                            error.message === "Ошибка с чтением доли пользователя.") {
+                            await ctx.reply(error.message);
+                        }
+                        else {
+                            await ctx.reply("Ошибка. Попробуйте еще раз.");
+                        }
+                        break;
+                    }
+                }
+                break;
+            case "Полный ребут (не нажимать)":
+                await ctx.reply("Введите ключ админа:");
+                var message = await conversation.wait();
+                if (message.message === undefined ||
+                    message.message.text !== process.env.KEY) {
+                    await ctx.reply("Неверный ключ.");
+                    return;
+                }
+                try {
+                    await deleteEverything();
+                    await ctx.reply("Все таблицы созданы заново.");
+                    break;
+                }
+                catch (error) {
+                    await ctx.reply("Ошибка. Попробуйте еще раз.");
+                    break;
+                }
+            case "Поменять принадлежность транзакции":
+                try {
+                    await ctx.reply("Введите hash транзакции:");
+                    let hash = await conversation.wait();
+                    if (hash.message === undefined) {
+                        throw "Ошибка с чтением hash.";
+                    }
+                    await deleteTrans(hash.message.text || "");
+                    await ctx.reply("Транзакция удалена.");
+                    break;
+                }
+                catch (error) {
+                    if (error instanceof Error) {
+                        if (error.name === "Ошибка с чтением hash.") {
+                            await ctx.reply(error.name);
+                        }
+                        else {
+                            await ctx.reply("Ошибка. Попробуйте еще раз.");
+                        }
+                        break;
+                    }
+                    break;
+                }
             case "Показать данные пользователя":
                 try {
                     await ctx.reply("Введите имя или ID пользователя:");
