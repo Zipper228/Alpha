@@ -170,6 +170,7 @@ export async function deleteUser(teleg_id) {
 export async function createUser(teleg_id, address, username, share) {
     try {
         const shareUpdated = share || 0.15;
+        console.log();
         const result = await pool.query("INSERT INTO " +
             process.env.MYSQL_TABLE_NAME_USERS +
             " (teleg_id, address, username, share, balance) VALUES (?, ?, ?, ?, ?)", [teleg_id, address, username, shareUpdated, 0]);
@@ -180,7 +181,11 @@ export async function createUser(teleg_id, address, username, share) {
     }
 }
 export async function updateUsers(teleg_id, toUpdate, newValue) {
-    console.log(newValue);
+    if (toUpdate === "address") {
+        console.log(typeof newValue);
+        newValue = String(newValue);
+        console.log("was");
+    }
     console.log("UPDATE " +
         process.env.MYSQL_TABLE_NAME_USERS +
         " SET " +
@@ -194,10 +199,7 @@ export async function updateUsers(teleg_id, toUpdate, newValue) {
             process.env.MYSQL_TABLE_NAME_USERS +
             " SET " +
             toUpdate +
-            " = " +
-            newValue +
-            " WHERE teleg_id = " +
-            teleg_id);
+            " = ? WHERE teleg_id = ?", [newValue, teleg_id]);
     }
     catch (error) {
         console.log("ERROR IN UPDATEUSERS " + error);
@@ -233,3 +235,4 @@ export async function checkUser(teleg_id) {
 //await createTableTrans();
 //deleteUser(875460557);
 //console.log(await usableBalance(100));
+
