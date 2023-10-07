@@ -23,7 +23,7 @@ export async function createTableUsers() {
     try {
         await pool.query("CREATE TABLE IF NOT EXISTS " +
             process.env.MYSQL_TABLE_NAME_USERS +
-            " (address VARCHAR(50) NOT NULL, teleg_id INT NOT NULL, username VARCHAR(40), share FLOAT NOT NULL, balance FLOAT NOT NULL, PRIMARY KEY (teleg_id))");
+            " (address VARCHAR(50) NOT NULL, teleg_id INT NOT NULL, username VARCHAR(40), share FLOAT NOT NULL, balance FLOAT NOT NULL, allowed_cash_out BOOLEAN NOT NULL, paid_user BOOLEAN NOT NULL, PRIMARY KEY (teleg_id))");
     }
     catch (error) {
         console.log("ERROR IN CREATETABLEUSERS " + error);
@@ -36,6 +36,16 @@ export async function createTableLogs() {
             " (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, datetime VARCHAR(25) NOT NULL, value FLOAT NOT NULL, FOREIGN KEY (user_id) REFERENCES " +
             process.env.MYSQL_TABLE_NAME_USERS +
             "(teleg_id))");
+    }
+    catch (error) {
+        console.log("ERROR IN CREATETABLELOGS " + error);
+    }
+}
+export async function createTableAdmins() {
+    try {
+        await pool.query("CREATE TABLE IF NOT EXISTS " +
+            process.env.MYSQL_TABLE_NAME_ADMINS +
+            " (user_id INT NOT NULL, username VARCHAR(40))");
     }
     catch (error) {
         console.log("ERROR IN CREATETABLELOGS " + error);
@@ -189,11 +199,47 @@ export async function createUser(teleg_id, address, username, share) {
         console.log();
         const result = await pool.query("INSERT INTO " +
             process.env.MYSQL_TABLE_NAME_USERS +
-            " (teleg_id, address, username, share, balance) VALUES (?, ?, ?, ?, ?)", [teleg_id, address, username, shareUpdated, 0]);
+            " (teleg_id, address, username, share, balance, allowed_cash_out, paid_user) VALUES (?, ?, ?, ?, ?, ?, ?)", [teleg_id, address, username, shareUpdated, 0, false, false]);
         return JSON.parse(JSON.stringify(result));
     }
     catch (error) {
         console.log("ERROR IN CREATEUSERS " + error);
+    }
+}
+export async function createAdmin(teleg_id, username) {
+    try {
+        const result = await pool.query("INSERT INTO " +
+            process.env.MYSQL_TABLE_NAME_ADMINS +
+            " (user_id, username) VALUES (?, ?)", [teleg_id, username]);
+        return JSON.parse(JSON.stringify(result));
+    }
+    catch (error) {
+        console.log("ERROR IN CREATEADMINS " + error);
+    }
+}
+export async function getAdmin(user_id) {
+    try {
+        if (user_id !== undefined) {
+            const [result] = await pool.query("SELECT * FROM " +
+                process.env.MYSQL_TABLE_NAME_ADMINS +
+                " WHERE user_id = ?", [user_id]);
+            return JSON.parse(JSON.stringify(result))[0];
+        }
+        const [result] = await pool.query("SELECT * FROM " + process.env.MYSQL_TABLE_NAME_ADMINS);
+        return JSON.parse(JSON.stringify(result));
+    }
+    catch (error) {
+        console.log("ERROR IN GETADMIN " + error);
+    }
+}
+export async function checkAdmin(teleg_id) {
+    const user = await getAdmin(teleg_id);
+    console.log(user);
+    if (user === undefined) {
+        return false;
+    }
+    else {
+        return true;
     }
 }
 export async function updateUsers(teleg_id, toUpdate, newValue) {
@@ -202,23 +248,29 @@ export async function updateUsers(teleg_id, toUpdate, newValue) {
         newValue = String(newValue);
         console.log("was");
     }
-    console.log("UPDATE " +
-        process.env.MYSQL_TABLE_NAME_USERS +
-        " SET " +
-        toUpdate +
-        " = " +
-        newValue +
-        " WHERE teleg_id = " +
-        teleg_id);
-    try {
-        await pool.query("UPDATE " +
-            process.env.MYSQL_TABLE_NAME_USERS +
-            " SET " +
-            toUpdate +
-            " = ? WHERE teleg_id = ?", [newValue, teleg_id]);
+    if (teleg_id !== undefined) {
+        try {
+            await pool.query("UPDATE " +
+                process.env.MYSQL_TABLE_NAME_USERS +
+                " SET " +
+                toUpdate +
+                " = ? WHERE teleg_id = ?", [newValue, teleg_id]);
+        }
+        catch (error) {
+            console.log("ERROR IN UPDATEUSER " + error);
+        }
     }
-    catch (error) {
-        console.log("ERROR IN UPDATEUSERS " + error);
+    else {
+        try {
+            await pool.query("UPDATE " +
+                process.env.MYSQL_TABLE_NAME_USERS +
+                " SET " +
+                toUpdate +
+                " = ?", [newValue]);
+        }
+        catch (error) {
+            console.log("ERROR IN UPDATEUSERS " + error);
+        }
     }
 }
 export async function updateBalance(teleg_id, value, increase) {
@@ -235,20 +287,22 @@ export async function updateBalance(teleg_id, value, increase) {
     await updateUsers(teleg_id, "balance", balance);
 }
 export async function dropTable(table) {
-    console.log("DROP TABLE " + table);
     await pool.query("DROP TABLE " + table);
 }
 export async function deleteEverything() {
     try {
+        await dropTable(process.env.MYSQL_TABLE_NAME_ADMINS || "");
         await dropTable(process.env.MYSQL_TABLE_NAME_LOGS || "");
         await dropTable(process.env.MYSQL_TABLE_NAME_TRANS || "");
         await dropTable(process.env.MYSQL_TABLE_NAME_USERS || "");
         await createTableUsers();
         await createTableLogs();
         await createTableTrans();
+        await createTableAdmins();
     }
     catch (error) {
-        throw "Ошибка";
+        console.log("ERROR in DELETEEVERYTHING " + error);
+        throw "Ошибка в DELETEEVERYTHING";
     }
 }
 export async function checkUser(teleg_id) {
