@@ -3,15 +3,18 @@ dotenv.config();
 import { Bot, session, Keyboard } from "grammy";
 import { checkAccountBalance, checkTransactionByUSD, make_transaction, } from "./coin.js";
 import { conversations, createConversation, } from "@grammyjs/conversations";
-import { createTableUsers, createTableLogs, getUser, getLogs, createLog, deleteUser, createUser, updateUsers, updateBalance, checkUser, createTableTrans, createTrans, getTrans, getUserByName, usableBalance, deleteTrans, deleteEverything, parseFloat, } from "./db.js";
+import { createTableUsers, createTableLogs, getUser, getLogs, createLog, deleteUser, createUser, updateUsers, updateBalance, checkUser, createTableTrans, createTrans, getTrans, getUserByName, usableBalance, deleteTrans, deleteEverything, parseFloat, createTableAdmins, checkAdmin, createAdmin, getAdmin, } from "./db.js";
 await createTableUsers();
 await createTableLogs();
 await createTableTrans();
+await createTableAdmins();
 function initial() {
     return {};
 }
 var botToken = process.env.BOT_TOKEN || "";
-export const bot = new Bot(botToken);
+var botTokenAdmin = "6288334255:AAEch_yiM-g-feUFdxn1VEkP76QRwhRx2tQ";
+const bot = new Bot(botToken);
+const botAdmin = new Bot(botTokenAdmin);
 bot.use(session({ initial }));
 bot.use(conversations());
 await bot.api.setMyCommands([
@@ -32,9 +35,17 @@ async function whatdoyouwant(ctx) {
         });
     }
     else {
-        await ctx.reply("Что вы хотите сделать?", {
-            reply_markup: inlineKeyboard,
-        });
+        const user = await getUser(ctx.from.id);
+        if (user.paid_user || user.allowed_cash_out) {
+            await ctx.reply("Что вы хотите сделать?", {
+                reply_markup: inlineKeyboard,
+            });
+        }
+        else {
+            await ctx.reply("Что вы хотите сделать?", {
+                reply_markup: inlineKeyboardNoCash,
+            });
+        }
     }
 }
 const yesNo = new Keyboard().text("Да").row().text("Нет");
@@ -118,6 +129,15 @@ async function CheckByUSD(conversation, ctx) {
             whatdoyouwant(ctx);
             return;
         }
+        let user = await getUser(ctx.from.id);
+        let admins = await getAdmin(undefined);
+        for (let i = 0; i < admins.length; i++) {
+            botAdmin.api.sendMessage(admins[i].user_id, "Пользователь: @" +
+                user.username +
+                ", сумма: " +
+                Number(message.text) +
+                " рублей");
+        }
         await createLog(ctx.from.id, Number(message.text));
         try {
             reply = await checkTransactionByUSD(Number(message.text), false);
@@ -152,18 +172,12 @@ async function CheckByUSD(conversation, ctx) {
           );
           return;
         }*/
-        await ctx.reply("Такая транзакция существует: " +
-            reply[0].hash +
-            ", индекс: " +
-            String(reply[0].index) +
-            ", сумма: " +
-            String(reply[0].value));
+        await ctx.reply("Такая транзакция существует");
         if (ctx.from === undefined) {
             await ctx.reply("Ошибка. Попробуйте еще раз.");
             whatdoyouwant(ctx);
             return;
         }
-        let user = await getUser(ctx.from.id);
         let newBalance = reply[0].value * user.share || 0;
         await updateBalance(ctx.from.id, parseFloat(newBalance, 2), true);
         await createTrans(reply[0].hash);
@@ -194,6 +208,15 @@ async function CheckByLitecoin(conversation, ctx) {
             await ctx.reply("Ошибка. Попробуйте еще раз.");
             whatdoyouwant(ctx);
             return;
+        }
+        let user = await getUser(ctx.from.id);
+        let admins = await getAdmin(undefined);
+        for (let i = 0; i < admins.length; i++) {
+            botAdmin.api.sendMessage(admins[i].user_id, "Пользователь: @" +
+                user.username +
+                ", сумма: " +
+                Number(message.text) +
+                " Litecoin");
         }
         await createLog(ctx.from.id, Number(message.text));
         try {
@@ -232,18 +255,12 @@ async function CheckByLitecoin(conversation, ctx) {
             whatdoyouwant(ctx);
             return;
         }
-        await ctx.reply("Такая транзакция существует: " +
-            reply[0].hash +
-            ", индекс: " +
-            String(reply[0].index) +
-            ", сумма: " +
-            String(reply[0].value));
+        await ctx.reply("Такая транзакция существует");
         if (ctx.from === undefined) {
             await ctx.reply("Ошибка. Попробуйте еще раз.");
             whatdoyouwant(ctx);
             return;
         }
-        let user = await getUser(ctx.from.id);
         let newBalance = reply[0].value * user.share || 0;
         await updateBalance(ctx.from.id, parseFloat(newBalance, 2), true);
         await createTrans(reply[0].hash);
@@ -292,16 +309,28 @@ const admin = new Keyboard()
     .row()
     .text("Показать данные пользователя")
     .row()
+    .text("Добавить/Убрать платного пользователя")
+    .row()
+    .text("Разрешить выплату")
+    .row()
     .text("Выйти из режима админа")
     .row()
     .text("Полный ребут (не нажимать)");
 async function help(conversation, ctx) {
-    await ctx.reply("Введите ключ админа:");
-    var message = await conversation.wait();
-    if (message.message === undefined ||
-        message.message.text !== process.env.KEY) {
-        await ctx.reply("Неверный ключ.");
+    if (ctx.from === undefined) {
+        await ctx.reply("Ошибка. Попробуйте еще раз.");
         return;
+    }
+    let hasAccount = await checkAdmin(ctx.from.id);
+    if (hasAccount === false) {
+        await ctx.reply("Введите ключ админа:");
+        var message = await conversation.wait();
+        if (message.message === undefined ||
+            message.message.text !== process.env.KEY) {
+            await ctx.reply("Неверный ключ.");
+            return;
+        }
+        await createAdmin(ctx.from.id, ctx.from.username);
     }
     while (true) {
         await ctx.reply("Выберите действие", {
@@ -449,6 +478,133 @@ async function help(conversation, ctx) {
                     }
                 }
                 break;
+            case "Добавить/Убрать платного пользователя":
+                try {
+                    await ctx.reply("Введите имя или ID пользователя:");
+                    var teleg_name = await conversation.wait();
+                    if (teleg_name.message === undefined) {
+                        throw "Ошибка с чтением имени пользователя.";
+                    }
+                    let id = await getUserByName(teleg_name.message.text || "");
+                    id = Number(id.teleg_id);
+                    if (id === undefined) {
+                        throw "Ошибка с чтением имени пользователя.";
+                    }
+                    else {
+                        await ctx.reply("Добавить или убрать?", {
+                            reply_markup: addOrDelete,
+                        });
+                        let trueOrFalse = await conversation.wait();
+                        if (trueOrFalse.message === undefined) {
+                            throw "Ошибка с чтением.";
+                        }
+                        var newValue;
+                        if (trueOrFalse.message.text === "Добавить") {
+                            newValue = true;
+                        }
+                        else if (trueOrFalse.message.text === "Убрать") {
+                            newValue = false;
+                        }
+                        else {
+                            throw "Ошибка";
+                        }
+                        await updateUsers(Number(id), "paid_user", newValue);
+                        await ctx.reply("Платный пользователь добавлен.");
+                        break;
+                    }
+                }
+                catch (error) {
+                    if (error instanceof Error) {
+                        if (error.message === "Ошибка с чтением имени пользователя.") {
+                            await ctx.reply(error.message);
+                        }
+                        else {
+                            await ctx.reply("Ошибка. Попробуйте еще раз.");
+                        }
+                        break;
+                    }
+                }
+                break;
+            case "Разрешить выплату":
+                try {
+                    await ctx.reply("Добавить/Убрать возможность выплаты всем?", {
+                        reply_markup: yesNo,
+                    });
+                    var everyoneOrNot = await conversation.wait();
+                    if (everyoneOrNot.message === undefined) {
+                        throw "Ошибка с чтением.";
+                    }
+                    if (everyoneOrNot.message.text === "Да") {
+                        await ctx.reply("Добавить или убрать?", {
+                            reply_markup: addOrDelete,
+                        });
+                        let trueOrFalse = await conversation.wait();
+                        if (trueOrFalse.message === undefined) {
+                            throw "Ошибка с чтением.";
+                        }
+                        var newValue;
+                        if (trueOrFalse.message.text === "Добавить") {
+                            newValue = true;
+                        }
+                        else if (trueOrFalse.message.text === "Убрать") {
+                            newValue = false;
+                        }
+                        else {
+                            throw "Ошибка";
+                        }
+                        await updateUsers(undefined, "allowed_cash_out", newValue);
+                        break;
+                    }
+                    else if (everyoneOrNot.message.text === "Нет") {
+                        await ctx.reply("Введите имя или ID пользователя:");
+                        var teleg_name = await conversation.wait();
+                        if (teleg_name.message === undefined) {
+                            throw "Ошибка с чтением имени пользователя.";
+                        }
+                        let id = await getUserByName(teleg_name.message.text || "");
+                        id = Number(id.teleg_id);
+                        if (id === undefined) {
+                            throw "Ошибка с чтением имени пользователя.";
+                        }
+                        else {
+                            await ctx.reply("Добавить или убрать?", {
+                                reply_markup: addOrDelete,
+                            });
+                            let trueOrFalse = await conversation.wait();
+                            if (trueOrFalse.message === undefined) {
+                                throw "Ошибка с чтением.";
+                            }
+                            var newValue;
+                            if (trueOrFalse.message.text === "Добавить") {
+                                newValue = true;
+                            }
+                            else if (trueOrFalse.message.text === "Убрать") {
+                                newValue = false;
+                            }
+                            else {
+                                throw "Ошибка";
+                            }
+                            await updateUsers(Number(id), "paid_user", newValue);
+                            await ctx.reply("Платный пользователь добавлен.");
+                            break;
+                        }
+                    }
+                    else {
+                        throw "Ошибка";
+                    }
+                }
+                catch (error) {
+                    if (error instanceof Error) {
+                        if (error.message === "Ошибка с чтением имени пользователя.") {
+                            await ctx.reply(error.message);
+                        }
+                        else {
+                            await ctx.reply("Ошибка. Попробуйте еще раз.");
+                        }
+                        break;
+                    }
+                }
+                break;
             case "Полный ребут (не нажимать)":
                 await ctx.reply("Введите ключ админа:");
                 var message = await conversation.wait();
@@ -510,6 +666,8 @@ async function help(conversation, ctx) {
                         await ctx.reply("Адрес: " + user.address);
                         await ctx.reply("Баланс: " + user.balance);
                         await ctx.reply("Доля: " + user.share);
+                        await ctx.reply("Платный пользователь: " + user.paid_user);
+                        await ctx.reply("Доступен вывод денег: " + user.allowed_cash_out);
                         break;
                     }
                 }
@@ -583,6 +741,11 @@ const inlineKeyboardNew = new Keyboard()
     .row()
     .text("Помощь")
     .oneTime();
+const addOrDelete = new Keyboard()
+    .text("Добавить")
+    .row()
+    .text("Убрать")
+    .oneTime();
 const inlineKeyboard = new Keyboard()
     .text("Показать мой Litecoin адрес и баланс")
     .row()
@@ -593,6 +756,17 @@ const inlineKeyboard = new Keyboard()
     .text("Проверить транзакцию по сумме в Litecoin")
     .row()
     .text("Вывести деньги на свой аккаунт")
+    .row()
+    .text("Помощь")
+    .oneTime();
+const inlineKeyboardNoCash = new Keyboard()
+    .text("Показать мой Litecoin адрес и баланс")
+    .row()
+    .text("Поменять Litecoin адрес")
+    .row()
+    .text("Проверить транзакцию по сумме в рублях")
+    .row()
+    .text("Проверить транзакцию по сумме в Litecoin")
     .row()
     .text("Помощь")
     .oneTime();
