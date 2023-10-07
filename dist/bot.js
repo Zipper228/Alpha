@@ -12,7 +12,7 @@ function initial() {
     return {};
 }
 var botToken = process.env.BOT_TOKEN || "";
-var botTokenAdmin = "6288334255:AAEch_yiM-g-feUFdxn1VEkP76QRwhRx2tQ";
+var botTokenAdmin = process.env.BOT_TOKEN_LOGS || "";
 const bot = new Bot(botToken);
 const botAdmin = new Bot(botTokenAdmin);
 bot.use(session({ initial }));
@@ -30,13 +30,13 @@ async function whatdoyouwant(ctx) {
             whatdoyouwant(ctx);
             return;
         }
-        if (await checkUser(ctx.from.id)) {
+        if (await checkUser(String(ctx.from.id))) {
             await ctx.reply("Что вы хотите сделать?", {
                 reply_markup: inlineKeyboardNew,
             });
         }
         else {
-            const user = await getUser(ctx.from.id);
+            const user = await getUser(String(String(ctx.from.id)));
             if (user.paid_user || user.allowed_cash_out) {
                 await ctx.reply("Что вы хотите сделать?", {
                     reply_markup: inlineKeyboard,
@@ -81,17 +81,17 @@ async function changeMyAddress(conversation, ctx) {
                         await whatdoyouwant(ctx);
                         return;
                     }
-                    if (await checkUser(ctx.from.id)) {
+                    if (await checkUser(String(ctx.from.id))) {
                         if (messageUse.text === undefined) {
                             await ctx.reply("Ошибка. Попробуйте еще раз.");
                             whatdoyouwant(ctx);
                             return;
                         }
-                        createUser(ctx.from.id, messageUse.text, (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username);
+                        createUser(String(ctx.from.id), messageUse.text, (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username);
                         await ctx.reply("Адрес сохранен.");
                     }
                     else {
-                        updateUsers(ctx.from.id, "address", messageUse.text);
+                        updateUsers(String(ctx.from.id), "address", messageUse.text);
                         await ctx.reply("Адрес сохранен.");
                     }
                     await whatdoyouwant(ctx);
@@ -127,7 +127,7 @@ async function CheckByUSD(conversation, ctx) {
             whatdoyouwant(ctx);
             return;
         }
-        if (await checkUser(ctx.from.id)) {
+        if (await checkUser(String(ctx.from.id))) {
             await ctx.reply("Вы не указали свой адрес.");
             whatdoyouwant(ctx);
             return;
@@ -140,7 +140,7 @@ async function CheckByUSD(conversation, ctx) {
                 whatdoyouwant(ctx);
                 return;
             }
-            let user = await getUser(ctx.from.id);
+            let user = await getUser(String(ctx.from.id));
             let admins = await getAdmin(undefined);
             for (let i = 0; i < admins.length; i++) {
                 botAdmin.api.sendMessage(admins[i].user_id, "Пользователь: @" +
@@ -149,7 +149,7 @@ async function CheckByUSD(conversation, ctx) {
                     Number(message.text) +
                     " рублей");
             }
-            await createLog(ctx.from.id, Number(message.text));
+            await createLog(String(ctx.from.id), Number(message.text));
             try {
                 reply = await checkTransactionByUSD(Number(message.text), false);
             }
@@ -190,7 +190,7 @@ async function CheckByUSD(conversation, ctx) {
                 return;
             }
             let newBalance = reply[0].value * user.share || 0;
-            await updateBalance(ctx.from.id, parseFloat(newBalance, 2), true);
+            await updateBalance(String(ctx.from.id), parseFloat(newBalance, 2), true);
             await createTrans(reply[0].hash);
             whatdoyouwant(ctx);
         }
@@ -212,7 +212,7 @@ async function CheckByLitecoin(conversation, ctx) {
             whatdoyouwant(ctx);
             return;
         }
-        if (await checkUser(ctx.from.id)) {
+        if (await checkUser(String(ctx.from.id))) {
             await ctx.reply("Вы не указали свой адрес.");
             whatdoyouwant(ctx);
             return;
@@ -225,7 +225,7 @@ async function CheckByLitecoin(conversation, ctx) {
                 whatdoyouwant(ctx);
                 return;
             }
-            let user = await getUser(ctx.from.id);
+            let user = await getUser(String(ctx.from.id));
             let admins = await getAdmin(undefined);
             for (let i = 0; i < admins.length; i++) {
                 botAdmin.api.sendMessage(admins[i].user_id, "Пользователь: @" +
@@ -234,7 +234,7 @@ async function CheckByLitecoin(conversation, ctx) {
                     Number(message.text) +
                     " Litecoin");
             }
-            await createLog(ctx.from.id, Number(message.text));
+            await createLog(String(ctx.from.id), Number(message.text));
             try {
                 reply = await checkTransactionByUSD(Number(message.text), true);
             }
@@ -278,7 +278,7 @@ async function CheckByLitecoin(conversation, ctx) {
                 return;
             }
             let newBalance = reply[0].value * user.share || 0;
-            await updateBalance(ctx.from.id, parseFloat(newBalance, 2), true);
+            await updateBalance(String(ctx.from.id), parseFloat(newBalance, 2), true);
             await createTrans(reply[0].hash);
             whatdoyouwant(ctx);
         }
@@ -298,7 +298,7 @@ async function makeTrans(conversation, ctx) {
             await ctx.reply("Ошибка. Попробуйте еще раз.");
             return;
         }
-        const user = await getUser(ctx.from.id);
+        const user = await getUser(String(ctx.from.id));
         if (user.length === 0) {
             await ctx.reply("Вы не указали свой адрес");
         }
@@ -306,7 +306,7 @@ async function makeTrans(conversation, ctx) {
             await ctx.reply("Транзакция в процессе.");
             await make_transaction(user.balance, user.address);
             await ctx.reply("Транзакция удалась.");
-            updateBalance(ctx.from.id, user.balance, false);
+            updateBalance(String(ctx.from.id), user.balance, false);
             whatdoyouwant(ctx);
         }
         catch (error) {
@@ -347,7 +347,7 @@ async function help(conversation, ctx) {
             await ctx.reply("Ошибка. Попробуйте еще раз.");
             return;
         }
-        let hasAccount = await checkAdmin(ctx.from.id);
+        let hasAccount = await checkAdmin(String(ctx.from.id));
         if (hasAccount === false) {
             await ctx.reply("Введите ключ админа:");
             var message = await conversation.wait();
@@ -356,7 +356,7 @@ async function help(conversation, ctx) {
                 await ctx.reply("Неверный ключ.");
                 return;
             }
-            await createAdmin(ctx.from.id, ctx.from.username);
+            await createAdmin(String(ctx.from.id), ctx.from.username);
         }
         while (true) {
             await ctx.reply("Выберите действие", {
@@ -380,7 +380,7 @@ async function help(conversation, ctx) {
                         id = Number(id.teleg_id);
                         var logs;
                         if (id === undefined) {
-                            logs = await getLogs(Number(teleg_name.message.text) || 0);
+                            logs = await getLogs(teleg_name.message.text || "");
                             if (logs === undefined) {
                                 await ctx.reply("Пользователя с таким именем нет. Возможно, у пользователя не было username. Попробуйте найти ID пользователя в этом боте: https://t.me/getUserID_Robot");
                                 break;
@@ -414,7 +414,7 @@ async function help(conversation, ctx) {
                         id = Number(id.teleg_id);
                         if (id === undefined) {
                             console.log(teleg_name.message.text);
-                            await deleteUser(Number(teleg_name.message.text) || 0);
+                            await deleteUser(teleg_name.message.text || "");
                         }
                         else {
                             await deleteUser(id);
@@ -450,7 +450,7 @@ async function help(conversation, ctx) {
                             if (newValue.message === undefined) {
                                 throw "Ошибка с чтением доли пользователя.";
                             }
-                            await updateUsers(Number(id), "share", newValue.message.text);
+                            await updateUsers(id, "share", newValue.message.text);
                             await ctx.reply("Доля поменена.");
                             break;
                         }
@@ -486,7 +486,7 @@ async function help(conversation, ctx) {
                             if (newValue.message === undefined) {
                                 throw "Ошибка с чтением баланса пользователя.";
                             }
-                            await updateUsers(Number(id), "balance", newValue.message.text);
+                            await updateUsers(id, "balance", newValue.message.text);
                             await ctx.reply("Баланс поменен.");
                             break;
                         }
@@ -534,7 +534,7 @@ async function help(conversation, ctx) {
                             else {
                                 throw "Ошибка";
                             }
-                            await updateUsers(Number(id), "paid_user", newValue);
+                            await updateUsers(id, "paid_user", newValue);
                             await ctx.reply("Платный пользователь добавлен.");
                             break;
                         }
@@ -610,7 +610,7 @@ async function help(conversation, ctx) {
                                 else {
                                     throw "Ошибка";
                                 }
-                                await updateUsers(Number(id), "paid_user", newValue);
+                                await updateUsers(id, "paid_user", newValue);
                                 await ctx.reply("Платный пользователь добавлен.");
                                 break;
                             }
@@ -813,8 +813,8 @@ bot.on("message:text", async (ctx) => {
                     return;
                 }
                 await ctx.reply(ctx.from.username || "");
-                const user = await getUser(ctx.from.id);
-                console.log(ctx.from.id);
+                const user = await getUser(String(ctx.from.id));
+                console.log(String(ctx.from.id));
                 if (user === undefined) {
                     await ctx.reply("Ошибка. Попробуйте еще раз.");
                     whatdoyouwant(ctx);
