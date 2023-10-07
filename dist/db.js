@@ -23,7 +23,7 @@ export async function createTableUsers() {
     try {
         await pool.query("CREATE TABLE IF NOT EXISTS " +
             process.env.MYSQL_TABLE_NAME_USERS +
-            " (address VARCHAR(50) NOT NULL, teleg_id INT NOT NULL, username VARCHAR(40), share FLOAT NOT NULL, balance FLOAT NOT NULL, allowed_cash_out BOOLEAN NOT NULL, paid_user BOOLEAN NOT NULL, PRIMARY KEY (teleg_id))");
+            " (address VARCHAR(50) NOT NULL, teleg_id VARCHAR(40) NOT NULL, username VARCHAR(40), share FLOAT NOT NULL, balance FLOAT NOT NULL, allowed_cash_out BOOLEAN NOT NULL, paid_user BOOLEAN NOT NULL, PRIMARY KEY (teleg_id))");
     }
     catch (error) {
         console.log("ERROR IN CREATETABLEUSERS " + error);
@@ -33,7 +33,7 @@ export async function createTableLogs() {
     try {
         await pool.query("CREATE TABLE IF NOT EXISTS " +
             process.env.MYSQL_TABLE_NAME_LOGS +
-            " (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, datetime VARCHAR(25) NOT NULL, value FLOAT NOT NULL, FOREIGN KEY (user_id) REFERENCES " +
+            " (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id VARCHAR(40) NOT NULL, datetime VARCHAR(25) NOT NULL, value FLOAT NOT NULL, FOREIGN KEY (user_id) REFERENCES " +
             process.env.MYSQL_TABLE_NAME_USERS +
             "(teleg_id))");
     }
@@ -197,9 +197,17 @@ export async function createUser(teleg_id, address, username, share) {
     try {
         const shareUpdated = share || process.env.DEFAULT_SHARE || 0.15;
         console.log();
-        const result = await pool.query("INSERT INTO " +
-            process.env.MYSQL_TABLE_NAME_USERS +
-            " (teleg_id, address, username, share, balance, allowed_cash_out, paid_user) VALUES (?, ?, ?, ?, ?, ?, ?)", [teleg_id, address, username, shareUpdated, 0, false, false]);
+        var result;
+        if (username === undefined) {
+            result = await pool.query("INSERT INTO " +
+                process.env.MYSQL_TABLE_NAME_USERS +
+                " (teleg_id, address, share, balance, allowed_cash_out, paid_user) VALUES (?, ?, ?, ?, ?, ?)", [teleg_id, address, shareUpdated, 0, false, false]);
+        }
+        else {
+            result = await pool.query("INSERT INTO " +
+                process.env.MYSQL_TABLE_NAME_USERS +
+                " (teleg_id, address, username, share, balance, allowed_cash_out, paid_user) VALUES (?, ?, ?, ?, ?, ?, ?)", [teleg_id, address, username, shareUpdated, 0, false, false]);
+        }
         return JSON.parse(JSON.stringify(result));
     }
     catch (error) {
