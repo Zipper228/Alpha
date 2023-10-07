@@ -112,3 +112,4 @@ export async function make_transaction(valueToSend1, recipientAddress1) {
         throw "Транзакция провалилась";
     }
 }
+
