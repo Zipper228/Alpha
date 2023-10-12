@@ -23,11 +23,12 @@ await bot.api.setMyCommands([
         description: "Старт",
     },
 ]);
+const errorInProgram = new Error("Ошибка в программе");
 async function whatdoyouwant(ctx) {
     try {
         if (ctx.from === undefined) {
             await ctx.reply("Ошибка. Попробуйте еще раз.");
-            whatdoyouwant(ctx);
+            await whatdoyouwant(ctx);
             return;
         }
         if (await checkUser(String(ctx.from.id))) {
@@ -48,22 +49,24 @@ async function whatdoyouwant(ctx) {
                 });
             }
         }
+        console.log("done");
+        return;
     }
     catch (error) {
-        console.log(error);
+        console.log("error in whatdoyouwant" + error);
+        return;
     }
 }
 const yesNo = new Keyboard().text("Да").row().text("Нет");
 async function changeMyAddress(conversation, ctx) {
     var _a;
     try {
-        console.log("working1");
+        console.log("starting changeMyAddress");
         await ctx.reply("Введите свой адрес:");
-        const { message } = await conversation.wait();
-        if (message !== undefined) {
-            const messageUse = message;
+        const message = await conversation.wait();
+        if (message.message !== undefined) {
             try {
-                const balance = await checkAccountBalance(messageUse.text);
+                const balance = await checkAccountBalance(message.message.text);
                 if (balance !== undefined) {
                     await ctx.reply("Баланс на этом аккаунте такой: " +
                         parseFloat(Number(balance), 2) +
@@ -74,24 +77,25 @@ async function changeMyAddress(conversation, ctx) {
                         await whatdoyouwant(ctx);
                         return;
                     }
-                    const { message } = await conversation.wait();
-                    console.log(message);
-                    if (message === undefined || message.text !== "Да") {
+                    const replyYesNo = await conversation.wait();
+                    console.log(replyYesNo);
+                    if (replyYesNo.message === undefined ||
+                        replyYesNo.message.text !== "Да") {
                         await ctx.reply("Ошибка. Попробуйте еще раз.");
                         await whatdoyouwant(ctx);
                         return;
                     }
                     if (await checkUser(String(ctx.from.id))) {
-                        if (messageUse.text === undefined) {
+                        if (replyYesNo.message.text === undefined) {
                             await ctx.reply("Ошибка. Попробуйте еще раз.");
-                            whatdoyouwant(ctx);
+                            await whatdoyouwant(ctx);
                             return;
                         }
-                        createUser(String(ctx.from.id), messageUse.text, (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username);
+                        createUser(String(ctx.from.id), replyYesNo.message.text, (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username);
                         await ctx.reply("Адрес сохранен.");
                     }
                     else {
-                        updateUsers(String(ctx.from.id), "address", messageUse.text);
+                        await updateUsers(String(ctx.from.id), "address", replyYesNo.message.text);
                         await ctx.reply("Адрес сохранен.");
                     }
                     await whatdoyouwant(ctx);
@@ -124,34 +128,34 @@ async function CheckByUSD(conversation, ctx) {
         await ctx.reply("Введите сумму в рублях:");
         if (ctx.from === undefined) {
             await ctx.reply("Ошибка. Попробуйте еще раз.");
-            whatdoyouwant(ctx);
+            await whatdoyouwant(ctx);
             return;
         }
         if (await checkUser(String(ctx.from.id))) {
             await ctx.reply("Вы не указали свой адрес.");
-            whatdoyouwant(ctx);
+            await whatdoyouwant(ctx);
             return;
         }
-        const { message } = await conversation.wait();
-        if (message !== undefined) {
+        const message = await conversation.wait();
+        if (message.message !== undefined) {
             var reply;
             if (ctx.from === undefined) {
                 await ctx.reply("Ошибка. Попробуйте еще раз.");
-                whatdoyouwant(ctx);
+                await whatdoyouwant(ctx);
                 return;
             }
             let user = await getUser(String(ctx.from.id));
             let admins = await getAdmin(undefined);
             for (let i = 0; i < admins.length; i++) {
-                botAdmin.api.sendMessage(admins[i].user_id, "Пользователь: @" +
+                await botAdmin.api.sendMessage(admins[i].user_id, "Пользователь: @" +
                     user.username +
                     ", сумма: " +
-                    Number(message.text) +
+                    Number(message.message.text) +
                     " рублей");
             }
-            await createLog(String(ctx.from.id), Number(message.text));
+            await createLog(String(ctx.from.id), Number(message.message.text));
             try {
-                reply = await checkTransactionByUSD(Number(message.text), false);
+                reply = await checkTransactionByUSD(Number(message.message.text), false);
             }
             catch (error) {
                 if (error instanceof Error) {
@@ -163,7 +167,7 @@ async function CheckByUSD(conversation, ctx) {
             }
             if (reply === undefined) {
                 await ctx.reply("Ошибка в программе.");
-                whatdoyouwant(ctx);
+                await whatdoyouwant(ctx);
                 return;
             }
             for (let i = 0; i < reply.length; i++) {
@@ -174,7 +178,7 @@ async function CheckByUSD(conversation, ctx) {
             }
             if (reply.length === 0) {
                 await ctx.reply("Такой транзакции не существует.");
-                whatdoyouwant(ctx);
+                await whatdoyouwant(ctx);
                 return;
             }
             /*if (reply.length > 1) {
@@ -186,13 +190,13 @@ async function CheckByUSD(conversation, ctx) {
             await ctx.reply("Такая транзакция существует");
             if (ctx.from === undefined) {
                 await ctx.reply("Ошибка. Попробуйте еще раз.");
-                whatdoyouwant(ctx);
+                await whatdoyouwant(ctx);
                 return;
             }
             let newBalance = reply[0].value * user.share || 0;
             await updateBalance(String(ctx.from.id), parseFloat(newBalance, 2), true);
             await createTrans(reply[0].hash);
-            whatdoyouwant(ctx);
+            await whatdoyouwant(ctx);
         }
     }
     catch (error) {
@@ -209,12 +213,12 @@ async function CheckByLitecoin(conversation, ctx) {
         await ctx.reply("Введите сумму в Litecoin:");
         if (ctx.from === undefined) {
             await ctx.reply("Ошибка. Попробуйте еще раз.");
-            whatdoyouwant(ctx);
+            await whatdoyouwant(ctx);
             return;
         }
         if (await checkUser(String(ctx.from.id))) {
             await ctx.reply("Вы не указали свой адрес.");
-            whatdoyouwant(ctx);
+            await whatdoyouwant(ctx);
             return;
         }
         const { message } = await conversation.wait();
@@ -222,18 +226,10 @@ async function CheckByLitecoin(conversation, ctx) {
             var reply;
             if (ctx.from === undefined) {
                 await ctx.reply("Ошибка. Попробуйте еще раз.");
-                whatdoyouwant(ctx);
+                await whatdoyouwant(ctx);
                 return;
             }
             let user = await getUser(String(ctx.from.id));
-            let admins = await getAdmin(undefined);
-            for (let i = 0; i < admins.length; i++) {
-                botAdmin.api.sendMessage(admins[i].user_id, "Пользователь: @" +
-                    user.username +
-                    ", сумма: " +
-                    Number(message.text) +
-                    " Litecoin");
-            }
             await createLog(String(ctx.from.id), Number(message.text));
             try {
                 reply = await checkTransactionByUSD(Number(message.text), true);
@@ -248,7 +244,7 @@ async function CheckByLitecoin(conversation, ctx) {
             }
             if (reply === undefined) {
                 await ctx.reply("Ошибка в программе.");
-                whatdoyouwant(ctx);
+                await whatdoyouwant(ctx);
                 return;
             }
             console.log(reply.length);
@@ -266,21 +262,39 @@ async function CheckByLitecoin(conversation, ctx) {
               "Несколько транзакций подходят такому описанию. Попробуйте указать сумму точнее."
             );
             return;
-          } else */ if (reply.length === 0) {
+          } else */
+            if (reply.length === 0) {
                 await ctx.reply("Такой транзакции не существует.");
-                whatdoyouwant(ctx);
+                await whatdoyouwant(ctx);
+                let admins = await getAdmin(undefined);
+                for (let i = 0; i < admins.length; i++) {
+                    botAdmin.api.sendMessage(admins[i].user_id, "Пользователь: @" +
+                        user.username +
+                        ", сумма: " +
+                        Number(message.text) +
+                        " Litecoin, транзакция: не существует");
+                }
                 return;
             }
             await ctx.reply("Такая транзакция существует");
+            let admins = await getAdmin(undefined);
+            for (let i = 0; i < admins.length; i++) {
+                botAdmin.api.sendMessage(admins[i].user_id, "Пользователь: @" +
+                    user.username +
+                    ", сумма: " +
+                    Number(message.text) +
+                    " Litecoin, транзакция: " +
+                    reply[0].hash);
+            }
             if (ctx.from === undefined) {
                 await ctx.reply("Ошибка. Попробуйте еще раз.");
-                whatdoyouwant(ctx);
+                await whatdoyouwant(ctx);
                 return;
             }
             let newBalance = reply[0].value * user.share || 0;
             await updateBalance(String(ctx.from.id), parseFloat(newBalance, 2), true);
             await createTrans(reply[0].hash);
-            whatdoyouwant(ctx);
+            await whatdoyouwant(ctx);
         }
     }
     catch (error) {
@@ -306,12 +320,12 @@ async function makeTrans(conversation, ctx) {
             await ctx.reply("Транзакция в процессе.");
             await make_transaction(user.balance, user.address);
             await ctx.reply("Транзакция удалась.");
-            updateBalance(String(ctx.from.id), user.balance, false);
-            whatdoyouwant(ctx);
+            await updateBalance(String(ctx.from.id), user.balance, false);
+            await whatdoyouwant(ctx);
         }
         catch (error) {
             await ctx.reply("Транзакция не удалась");
-            whatdoyouwant(ctx);
+            await whatdoyouwant(ctx);
         }
     }
     catch (error) {
@@ -358,11 +372,12 @@ async function help(conversation, ctx) {
             }
             await createAdmin(String(ctx.from.id), ctx.from.username);
         }
+        var reply;
         while (true) {
             await ctx.reply("Выберите действие", {
                 reply_markup: admin,
             });
-            var reply = await conversation.wait();
+            reply = await conversation.wait();
             if (reply.message === undefined) {
                 await ctx.reply("Ошибка. Попробуйте еще раз.");
                 return;
@@ -402,6 +417,7 @@ async function help(conversation, ctx) {
                         await ctx.reply("Пользователя с таким именем нет. Возможно, у пользователя не было username. Попробуйте найти ID пользователя в этом боте: https://t.me/getUserID_Robot");
                         break;
                     }
+                    reply = undefined;
                     break;
                 case "Удалить пользователя.":
                     await ctx.reply("Введите имя или ID пользователя:");
@@ -434,21 +450,22 @@ async function help(conversation, ctx) {
                     break;
                 case "Поменять долю пользователя.":
                     try {
+                        console.log("lox");
                         await ctx.reply("Введите имя или ID пользователя:");
                         var teleg_name = await conversation.wait();
                         if (teleg_name.message === undefined) {
-                            throw "Ошибка с чтением имени пользователя.";
+                            throw new Error("Ошибка с чтением имени пользователя.");
                         }
                         let id = await getUserByName(teleg_name.message.text || "");
                         id = Number(id.teleg_id);
                         if (id === undefined) {
-                            throw "Ошибка с чтением имени пользователя.";
+                            throw new Error("Ошибка с чтением имени пользователя.");
                         }
                         else {
                             await ctx.reply("Введите новую долю пользователя.");
                             let newValue = await conversation.wait();
                             if (newValue.message === undefined) {
-                                throw "Ошибка с чтением доли пользователя.";
+                                throw new Error("Ошибка с чтением доли пользователя.");
                             }
                             await updateUsers(id, "share", newValue.message.text);
                             await ctx.reply("Доля поменена.");
@@ -456,16 +473,7 @@ async function help(conversation, ctx) {
                         }
                     }
                     catch (error) {
-                        if (error instanceof Error) {
-                            if (error.message === "Ошибка с чтением имени пользователя." ||
-                                error.message === "Ошибка с чтением доли пользователя.") {
-                                await ctx.reply(error.message);
-                            }
-                            else {
-                                await ctx.reply("Ошибка. Попробуйте еще раз.");
-                            }
-                            break;
-                        }
+                        await ctx.reply(String(error));
                     }
                     break;
                 case "Поменять баланс пользователя.":
@@ -801,7 +809,7 @@ const inlineKeyboardNoCash = new Keyboard()
     .text("Помощь")
     .oneTime();
 bot.command("start", async (ctx) => {
-    whatdoyouwant(ctx);
+    await whatdoyouwant(ctx);
 });
 bot.on("message:text", async (ctx) => {
     try {
@@ -809,7 +817,7 @@ bot.on("message:text", async (ctx) => {
             case "Показать мой Litecoin адрес и баланс":
                 if (ctx.from === undefined) {
                     await ctx.reply("Ошибка. Попробуйте еще раз.");
-                    whatdoyouwant(ctx);
+                    await whatdoyouwant(ctx);
                     return;
                 }
                 await ctx.reply(ctx.from.username || "");
@@ -817,12 +825,12 @@ bot.on("message:text", async (ctx) => {
                 console.log(String(ctx.from.id));
                 if (user === undefined) {
                     await ctx.reply("Ошибка. Попробуйте еще раз.");
-                    whatdoyouwant(ctx);
+                    await whatdoyouwant(ctx);
                     return;
                 }
                 await ctx.reply("Аккаунт: " + user.address);
                 await ctx.reply("Баланс: " + parseFloat(user.balance, 2));
-                whatdoyouwant(ctx);
+                await whatdoyouwant(ctx);
                 break;
             case "Поменять Litecoin адрес":
                 await ctx.conversation.enter("changeMyAddress");
