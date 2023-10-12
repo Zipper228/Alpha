@@ -27,7 +27,9 @@ export async function checkAccountBalance(addressToCheck) {
     }
 }
 export async function checkTransactionByUSD(value, litecoin) {
+    var _a;
     const address = process.env.MY_ADDRESS || "";
+    const share = Number(process.env.ALLOWED_DIF) || 0.1;
     var response = [];
     var valueNew;
     if (litecoin) {
@@ -45,14 +47,25 @@ export async function checkTransactionByUSD(value, litecoin) {
         for (let i = 0; i < txByAddress.length; i++) {
             var txInfo = txByAddress[i];
             let txOutputs;
+            let txInputs;
             if (txInfo !== undefined) {
+                txInputs = txByAddress[i].inputs;
                 txOutputs = txByAddress[i].outputs;
-                if (txOutputs !== undefined) {
+                if (txOutputs !== undefined && txInputs !== undefined) {
                     for (let j = 0; j < txOutputs.length; j++) {
                         let txOutputsJth = txOutputs[j];
-                        let share = Number(process.env.ALLOWED_DIF) || 0.1;
                         if (txOutputsJth.address === address &&
                             moreOrLessThanNum(Number(txOutputsJth.value), valueNew, share)) {
+                            let threreis = false;
+                            for (let k = 0; k < txInputs.length; k++) {
+                                if (((_a = txInputs[k].coin) === null || _a === void 0 ? void 0 : _a.address) === address) {
+                                    threreis = true;
+                                    break;
+                                }
+                            }
+                            if (threreis === true) {
+                                break;
+                            }
                             response.push({
                                 hash: JSON.stringify(txByAddress[i].hash),
                                 index: j,
@@ -112,4 +125,3 @@ export async function make_transaction(valueToSend1, recipientAddress1) {
         throw "Транзакция провалилась";
     }
 }
-
