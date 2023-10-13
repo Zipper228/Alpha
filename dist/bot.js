@@ -66,6 +66,10 @@ async function changeMyAddress(conversation, ctx) {
         const message = await conversation.wait();
         if (message.message !== undefined) {
             try {
+                if (message.message.text === undefined) {
+                    await whatdoyouwant(ctx);
+                    return;
+                }
                 const balance = await checkAccountBalance(message.message.text);
                 if (balance !== undefined) {
                     await ctx.reply("Баланс на этом аккаунте такой: " +
@@ -91,11 +95,11 @@ async function changeMyAddress(conversation, ctx) {
                             await whatdoyouwant(ctx);
                             return;
                         }
-                        createUser(String(ctx.from.id), replyYesNo.message.text, (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username);
+                        createUser(String(ctx.from.id), message.message.text, (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username);
                         await ctx.reply("Адрес сохранен.");
                     }
                     else {
-                        await updateUsers(String(ctx.from.id), "address", replyYesNo.message.text);
+                        await updateUsers(String(ctx.from.id), "address", message.message.text);
                         await ctx.reply("Адрес сохранен.");
                     }
                     await whatdoyouwant(ctx);
