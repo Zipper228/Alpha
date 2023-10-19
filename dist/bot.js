@@ -170,6 +170,7 @@ async function CheckByUSD(conversation, ctx) {
                 let hashes = await getTrans(reply[i].hash);
                 if (hashes === undefined || (hashes === null || hashes === void 0 ? void 0 : hashes.length) > 0) {
                     reply.splice(i, 1);
+                    i--;
                 }
             }
             if (reply.length === 0) {
